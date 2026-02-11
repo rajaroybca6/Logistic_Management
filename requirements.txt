@@ -13,4 +13,5 @@ matplotlib
 seaborn
 streamlit
 folium
+streamlit-folium
 jinja2
