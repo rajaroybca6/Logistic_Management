@@ -450,6 +450,19 @@ with st.sidebar.expander("🔔 Automated Alerts Settings", expanded=False):
 
 st.sidebar.markdown("### 🕹️ Shipment Control")
 
+# Debug geocoding tool
+with st.sidebar.expander("🧪 Test Geocoding (Debug)", expanded=False):
+    st.caption("Test if addresses can be found")
+    test_addr = st.text_input("Test Address", "Milan, Italy", key="test_geo")
+    if st.button("🔍 Test Lookup", key="test_btn"):
+        with st.spinner("Testing..."):
+            coords = get_coordinates(test_addr)
+            if coords:
+                st.success(f"✅ Found: {coords}")
+            else:
+                st.error(f"❌ Failed to find: {test_addr}")
+                st.info("Possible causes:\n- Rate limit (wait 5 sec)\n- Invalid address\n- Network issue")
+
 
 def manual_input():
     with st.sidebar.form("manual_entry_form"):
@@ -689,38 +702,77 @@ else:
                 route_meteo = st.slider("Weather Risk", 1, 5, 2, key="route_weather")
                 route_doganale = st.slider("Customs Risk", 1, 5, 1, key="route_customs")
 
-        if st.button("🔍 Calculate Route Risk", type="primary"):
-            with st.spinner("🌍 Analyzing geographical data... (this may take a few seconds)"):
-                p_coords = get_coordinates(pickup_addr)
-                d_coords = get_coordinates(delivery_addr)
+        calc_col1, calc_col2 = st.columns([3, 1])
+        with calc_col1:
+            calc_button = st.button("🔍 Calculate Route Risk", type="primary", use_container_width=True)
+        with calc_col2:
+            if st.button("🔄 Clear Cache", help="Clear geocoding cache if addresses fail"):
+                # Clear the geocoding function's internal state
+                st.cache_data.clear()
+                st.success("Cache cleared! Try again.")
+                
+        if calc_button:
+            # Validate addresses first
+            if not pickup_addr.strip() or not delivery_addr.strip():
+                st.error("⚠️ Please enter both pickup and delivery locations.")
+            else:
+                with st.spinner("🌍 Analyzing geographical data... Please wait (this may take 5-10 seconds)"):
+                    st.info(f"🔍 Looking up: **{pickup_addr}** and **{delivery_addr}**")
+                    
+                    p_coords = get_coordinates(pickup_addr)
+                    
+                    if not p_coords:
+                        st.error(f"""
+                        ❌ **Pickup location not found: "{pickup_addr}"**
+                        
+                        **Troubleshooting:**
+                        - Try format: "City, Country" (e.g., "Milan, Italy")
+                        - Check spelling
+                        - Wait 5 seconds and try again (rate limit)
+                        - Click "🔄 Clear Cache" and retry
+                        """)
+                    else:
+                        st.success(f"✅ Pickup location found: {p_coords}")
+                        d_coords = get_coordinates(delivery_addr)
+                        
+                        if not d_coords:
+                            st.error(f"""
+                            ❌ **Delivery location not found: "{delivery_addr}"**
+                            
+                            **Troubleshooting:**
+                            - Try format: "City, Country" (e.g., "Berlin, Germany")
+                            - Check spelling
+                            - Wait 5 seconds and try again
+                            - Click "🔄 Clear Cache" and retry
+                            """)
+                        else:
+                            st.success(f"✅ Delivery location found: {d_coords}")
+                            
+                            dist_km = haversine(p_coords[0], p_coords[1], d_coords[0], d_coords[1])
+                            route_data = pd.DataFrame([{
+                                "distanza_km": dist_km, "valore_merce_eur": route_valore, "peso_kg": route_peso,
+                                "numero_transiti": route_transiti, "rischio_meteo": route_meteo,
+                                "rischio_doganale": route_doganale,
+                                "modalità_trasporto": route_modalita, "fragile": 0, "tracking_gps": 1
+                            }])
+                            prob = pipeline.predict_proba(route_data)[0][1]
+                            pred = pipeline.predict(route_data)[0]
 
-                if p_coords and d_coords:
-                    dist_km = haversine(p_coords[0], p_coords[1], d_coords[0], d_coords[1])
-                    route_data = pd.DataFrame([{
-                        "distanza_km": dist_km, "valore_merce_eur": route_valore, "peso_kg": route_peso,
-                        "numero_transiti": route_transiti, "rischio_meteo": route_meteo,
-                        "rischio_doganale": route_doganale,
-                        "modalità_trasporto": route_modalita, "fragile": 0, "tracking_gps": 1
-                    }])
-                    prob = pipeline.predict_proba(route_data)[0][1]
-                    pred = pipeline.predict(route_data)[0]
+                            if st.session_state.get("alert_email_on", False):
+                                trigger_email_alert(
+                                    context=f"Route {pickup_addr} -> {delivery_addr}", prob=float(prob),
+                                    threshold=float(st.session_state.get("alert_threshold", 0.70)),
+                                    to_email=st.session_state.get("alert_email_to", "")
+                                )
 
-                    if st.session_state.get("alert_email_on", False):
-                        trigger_email_alert(
-                            context=f"Route {pickup_addr} -> {delivery_addr}", prob=float(prob),
-                            threshold=float(st.session_state.get("alert_threshold", 0.70)),
-                            to_email=st.session_state.get("alert_email_to", "")
-                        )
-
-                    st.session_state.route_calculated = True
-                    st.session_state.route_data = {
-                        'p_coords': p_coords, 'd_coords': d_coords, 'dist_km': dist_km,
-                        'prob': prob, 'pred': pred, 'pickup_addr': pickup_addr, 'delivery_addr': delivery_addr,
-                        'route_modalita': route_modalita, 'route_transiti': route_transiti
-                    }
-                    st.success("✅ Route calculated successfully!")
-                else:
-                    st.error("❌ Address not found. Please check the spelling and try again. Common formats: 'City, Country' (e.g., 'Paris, France')")
+                            st.session_state.route_calculated = True
+                            st.session_state.route_data = {
+                                'p_coords': p_coords, 'd_coords': d_coords, 'dist_km': dist_km,
+                                'prob': prob, 'pred': pred, 'pickup_addr': pickup_addr, 'delivery_addr': delivery_addr,
+                                'route_modalita': route_modalita, 'route_transiti': route_transiti
+                            }
+                            st.balloons()
+                            st.success(f"🎉 Route calculated! Distance: {dist_km:.1f} km")
 
         if st.session_state.route_calculated and 'route_data' in st.session_state:
             rd = st.session_state.route_data
