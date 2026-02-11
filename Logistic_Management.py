@@ -152,17 +152,24 @@ def load_model():
 
 
 pipeline = load_model()
-geolocator = Nominatim(user_agent="logistic_guardian_app")
+#geolocator = Nominatim(user_agent="logistic_guardian_app")
+geolocator = Nominatim(user_agent="rajaroy_guardian_v2_production")
 
 
 # --- HELPER FUNCTIONS ---
+
+  # --- HELPER FUNCTIONS ---
 def get_coordinates(address):
     try:
-        location = geolocator.geocode(address)
+        # Crucial: the 10-second timeout prevents the app from 
+        # crashing on slower mobile 4G/5G connections.
+        location = geolocator.geocode(address, timeout=10) 
         if location:
             return (location.latitude, location.longitude)
         return None
-    except:
+    except Exception as e:
+        # Logs errors so you can debug in the Streamlit "Manage App" console.
+        print(f"Geocoding error: {e}") 
         return None
 
 
@@ -347,9 +354,11 @@ def _env_or_secret(key: str, default: str = ""):
 
 def send_email_smtp(to_email: str, subject: str, body: str) -> dict:
     host = _env_or_secret("SMTP_HOST", "smtp.gmail.com")
-    port = int(_env_or_secret("SMTP_PORT", "587"))
+    port = int(_env_or_secret("SMTP_PORT", "587")) # Ensure this is 587
     user = _env_or_secret("SMTP_USER")
     password = _env_or_secret("SMTP_PASS")
+    
+    # ... rest of your logic ...
     from_email = _env_or_secret("ALERT_EMAIL_FROM", user)
 
     if not user or not password:
