@@ -155,12 +155,81 @@ pipeline = load_model()
 geolocator = Nominatim(user_agent="rajaroy_guardian_v2_production")
 
 
+# ============================================================
+# 🗺️ HARDCODED CITY COORDINATES (FALLBACK)
+# ============================================================
+CITY_COORDS = {
+    # Italy
+    "milan, italy": (45.4642, 9.1900),
+    "rome, italy": (41.9028, 12.4964),
+    "turin, italy": (45.0703, 7.6869),
+    "florence, italy": (43.7696, 11.2558),
+    "venice, italy": (45.4408, 12.3155),
+    "naples, italy": (40.8518, 14.2681),
+    "bologna, italy": (44.4949, 11.3426),
+    "genoa, italy": (44.4056, 8.9463),
+    "verona, italy": (45.4384, 10.9916),
+    "palermo, italy": (38.1157, 13.3615),
+    
+    # Germany
+    "berlin, germany": (52.5200, 13.4050),
+    "munich, germany": (48.1351, 11.5820),
+    "hamburg, germany": (53.5511, 9.9937),
+    "frankfurt, germany": (50.1109, 8.6821),
+    "cologne, germany": (50.9375, 6.9603),
+    
+    # France
+    "paris, france": (48.8566, 2.3522),
+    "marseille, france": (43.2965, 5.3698),
+    "lyon, france": (45.7640, 4.8357),
+    
+    # UK
+    "london, uk": (51.5074, -0.1278),
+    "manchester, uk": (53.4808, -2.2426),
+    "birmingham, uk": (52.4862, -1.8904),
+    
+    # Spain
+    "madrid, spain": (40.4168, -3.7038),
+    "barcelona, spain": (41.3851, 2.1734),
+    "valencia, spain": (39.4699, -0.3763),
+    "lisbon, portugal": (38.7223, -9.1393),
+    
+    # Other Europe
+    "amsterdam, netherlands": (52.3676, 4.9041),
+    "brussels, belgium": (50.8503, 4.3517),
+    "vienna, austria": (48.2082, 16.3738),
+    "zurich, switzerland": (47.3769, 8.5417),
+    "prague, czech republic": (50.0755, 14.4378),
+    "warsaw, poland": (52.2297, 21.0122),
+    "budapest, hungary": (47.4979, 19.0402),
+    "copenhagen, denmark": (55.6761, 12.5683),
+    "stockholm, sweden": (59.3293, 18.0686),
+    "athens, greece": (37.9838, 23.7275),
+    "istanbul, turkey": (41.0082, 28.9784),
+    
+    # International
+    "new york, usa": (40.7128, -74.0060),
+    "los angeles, usa": (34.0522, -118.2437),
+    "tokyo, japan": (35.6762, 139.6503),
+    "dubai, uae": (25.2048, 55.2708),
+    "singapore": (1.3521, 103.8198),
+    "sydney, australia": (-33.8688, 151.2093),
+}
+
+
 # --- HELPER FUNCTIONS ---
 def get_coordinates(address):
     """
-    Geocode address with retry logic and rate limiting.
-    Fixed version to prevent 'Address not found' errors.
+    Geocode address with FALLBACK to hardcoded coordinates.
+    This prevents failures from rate limiting or network issues.
     """
+    # Try hardcoded coordinates FIRST (instant, no API call)
+    addr_lower = address.lower().strip()
+    if addr_lower in CITY_COORDS:
+        print(f"✅ Using hardcoded coords for: {address}")
+        return CITY_COORDS[addr_lower]
+    
+    # Fallback to Nominatim API with retry logic
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -169,6 +238,7 @@ def get_coordinates(address):
             # Increased timeout from 10 to 15 seconds for slower connections
             location = geolocator.geocode(address, timeout=15) 
             if location:
+                print(f"✅ Nominatim found: {address} -> {location.latitude}, {location.longitude}")
                 return (location.latitude, location.longitude)
             
             # If no location found on first attempt, try with more specific query
@@ -176,18 +246,19 @@ def get_coordinates(address):
                 time.sleep(1.2)
                 location = geolocator.geocode(f"{address}, Europe", timeout=15)
                 if location:
+                    print(f"✅ Nominatim found (with Europe): {address}")
                     return (location.latitude, location.longitude)
-            return None
             
         except Exception as e:
             # Log error for debugging in Streamlit console
-            print(f"Geocoding error (attempt {attempt+1}/{max_retries}): {e}")
+            print(f"⚠️ Geocoding error (attempt {attempt+1}/{max_retries}): {e}")
             if attempt < max_retries - 1:
                 # Wait 2 seconds before retry
                 time.sleep(2)
                 continue
-            # Final attempt failed - return None
-            return None
+    
+    # All attempts failed
+    print(f"❌ Failed to geocode: {address}")
     return None
 
 
