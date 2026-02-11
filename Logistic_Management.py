@@ -221,33 +221,49 @@ CITY_COORDS = {
 def get_coordinates(address):
     """
     Geocode address with FALLBACK to hardcoded coordinates.
-    This prevents failures from rate limiting or network issues.
+    Supports: City/Country, Full Addresses, Postal Codes, Street Addresses
+    
+    Examples:
+    - "Milan, Italy" → Works
+    - "Via Roma 1, 20121 Milan, Italy" → Works
+    - "20121, Milan, Italy" → Works
+    - "Alexanderplatz, Berlin, Germany" → Works
+    - "10115 Berlin, Germany" → Works
     """
-    # Try hardcoded coordinates FIRST (instant, no API call)
+    # Clean and normalize address
     addr_lower = address.lower().strip()
+    
+    # Try hardcoded coordinates FIRST for simple city queries
     if addr_lower in CITY_COORDS:
         print(f"✅ Using hardcoded coords for: {address}")
         return CITY_COORDS[addr_lower]
     
-    # Fallback to Nominatim API with retry logic
+    # For complex addresses (street, postal code, etc.), go straight to Nominatim
+    # Nominatim handles these better than our hardcoded list
     max_retries = 3
     for attempt in range(max_retries):
         try:
             # Respect Nominatim's 1 request/second rate limit
             time.sleep(1.2)  # Slightly over 1 second to be safe
+            
+            print(f"🔍 Attempting Nominatim geocoding for: {address}")
+            
             # Increased timeout from 10 to 15 seconds for slower connections
-            location = geolocator.geocode(address, timeout=15) 
+            location = geolocator.geocode(address, timeout=15, addressdetails=True) 
             if location:
-                print(f"✅ Nominatim found: {address} -> {location.latitude}, {location.longitude}")
+                print(f"✅ Nominatim found: {address} -> ({location.latitude}, {location.longitude})")
+                print(f"   Full address: {location.address}")
                 return (location.latitude, location.longitude)
             
-            # If no location found on first attempt, try with more specific query
+            # If no location found on first attempt, try variations
             if attempt == 0:
-                time.sleep(1.2)
-                location = geolocator.geocode(f"{address}, Europe", timeout=15)
-                if location:
-                    print(f"✅ Nominatim found (with Europe): {address}")
-                    return (location.latitude, location.longitude)
+                # Try adding country if not present
+                if "," not in address:
+                    time.sleep(1.2)
+                    location = geolocator.geocode(f"{address}, Europe", timeout=15)
+                    if location:
+                        print(f"✅ Nominatim found (with Europe): {address}")
+                        return (location.latitude, location.longitude)
             
         except Exception as e:
             # Log error for debugging in Streamlit console
@@ -257,7 +273,14 @@ def get_coordinates(address):
                 time.sleep(2)
                 continue
     
-    # All attempts failed
+    # All attempts failed - try to extract city from address and use hardcoded
+    print(f"⚠️ Nominatim failed, trying to extract city from: {address}")
+    for city_key in CITY_COORDS.keys():
+        if city_key in addr_lower:
+            print(f"✅ Extracted city '{city_key}' from address, using hardcoded coords")
+            return CITY_COORDS[city_key]
+    
+    # Absolutely all attempts failed
     print(f"❌ Failed to geocode: {address}")
     return None
 
@@ -758,8 +781,10 @@ else:
         c1, c2 = st.columns(2)
         with c1:
             pickup_addr = st.text_input("📍 Pickup Location", "Milan, Italy")
+            st.caption("Examples: 'Milan, Italy' or 'Via Roma 1, 20121 Milan, Italy' or '10115 Berlin, Germany'")
         with c2:
             delivery_addr = st.text_input("📍 Delivery Location", "Berlin, Germany")
+            st.caption("Supports: City, Full Address, Postal Code + City")
 
         with st.expander("🛠️ Advanced Configuration", expanded=False):
             rc1, rc2, rc3 = st.columns(3)
@@ -772,6 +797,43 @@ else:
             with rc3:
                 route_meteo = st.slider("Weather Risk", 1, 5, 2, key="route_weather")
                 route_doganale = st.slider("Customs Risk", 1, 5, 1, key="route_customs")
+        
+        with st.expander("📋 Supported Address Formats & Examples", expanded=False):
+            st.markdown("""
+            ### ✅ Supported Address Formats:
+            
+            **1. City, Country** (Fastest - uses instant lookup)
+            - `Milan, Italy`
+            - `Berlin, Germany`
+            - `Paris, France`
+            
+            **2. Full Street Address**
+            - `Via Roma 1, Milan, Italy`
+            - `Alexanderplatz 1, Berlin, Germany`
+            - `10 Downing Street, London, UK`
+            
+            **3. Postal Code + City**
+            - `20121 Milan, Italy`
+            - `10115 Berlin, Germany`
+            - `75001 Paris, France`
+            
+            **4. Complete Address with Postal Code**
+            - `Via Dante 5, 20121 Milan, Italy`
+            - `Unter den Linden 1, 10117 Berlin, Germany`
+            - `Piazza Navona 1, 00186 Rome, Italy`
+            
+            **5. Famous Landmarks**
+            - `Colosseum, Rome, Italy`
+            - `Eiffel Tower, Paris, France`
+            - `Brandenburg Gate, Berlin, Germany`
+            
+            ### 💡 Tips:
+            - Always include the **country name** for best results
+            - Use **commas** to separate parts (street, city, country)
+            - **Postal codes** improve accuracy for street addresses
+            - **Wait 5 seconds** between searches to avoid rate limits
+            """)
+        
 
         calc_col1, calc_col2 = st.columns([3, 1])
         with calc_col1:
