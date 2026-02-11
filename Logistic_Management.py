@@ -152,25 +152,43 @@ def load_model():
 
 
 pipeline = load_model()
-#geolocator = Nominatim(user_agent="logistic_guardian_app")
 geolocator = Nominatim(user_agent="rajaroy_guardian_v2_production")
 
 
 # --- HELPER FUNCTIONS ---
-
-  # --- HELPER FUNCTIONS ---
 def get_coordinates(address):
-    try:
-        # Crucial: the 10-second timeout prevents the app from 
-        # crashing on slower mobile 4G/5G connections.
-        location = geolocator.geocode(address, timeout=10) 
-        if location:
-            return (location.latitude, location.longitude)
-        return None
-    except Exception as e:
-        # Logs errors so you can debug in the Streamlit "Manage App" console.
-        print(f"Geocoding error: {e}") 
-        return None
+    """
+    Geocode address with retry logic and rate limiting.
+    Fixed version to prevent 'Address not found' errors.
+    """
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Respect Nominatim's 1 request/second rate limit
+            time.sleep(1.2)  # Slightly over 1 second to be safe
+            # Increased timeout from 10 to 15 seconds for slower connections
+            location = geolocator.geocode(address, timeout=15) 
+            if location:
+                return (location.latitude, location.longitude)
+            
+            # If no location found on first attempt, try with more specific query
+            if attempt == 0:
+                time.sleep(1.2)
+                location = geolocator.geocode(f"{address}, Europe", timeout=15)
+                if location:
+                    return (location.latitude, location.longitude)
+            return None
+            
+        except Exception as e:
+            # Log error for debugging in Streamlit console
+            print(f"Geocoding error (attempt {attempt+1}/{max_retries}): {e}")
+            if attempt < max_retries - 1:
+                # Wait 2 seconds before retry
+                time.sleep(2)
+                continue
+            # Final attempt failed - return None
+            return None
+    return None
 
 
 def create_gauge_visual(probability):
@@ -672,7 +690,7 @@ else:
                 route_doganale = st.slider("Customs Risk", 1, 5, 1, key="route_customs")
 
         if st.button("🔍 Calculate Route Risk", type="primary"):
-            with st.spinner("Analyzing geographical data..."):
+            with st.spinner("🌍 Analyzing geographical data... (this may take a few seconds)"):
                 p_coords = get_coordinates(pickup_addr)
                 d_coords = get_coordinates(delivery_addr)
 
@@ -700,8 +718,9 @@ else:
                         'prob': prob, 'pred': pred, 'pickup_addr': pickup_addr, 'delivery_addr': delivery_addr,
                         'route_modalita': route_modalita, 'route_transiti': route_transiti
                     }
+                    st.success("✅ Route calculated successfully!")
                 else:
-                    st.error("❌ Address not found.")
+                    st.error("❌ Address not found. Please check the spelling and try again. Common formats: 'City, Country' (e.g., 'Paris, France')")
 
         if st.session_state.route_calculated and 'route_data' in st.session_state:
             rd = st.session_state.route_data
@@ -933,4 +952,4 @@ st.sidebar.markdown("---")
 st.sidebar.caption("✅ System Created By Raja Roy | 2026")
 
 #Run: cd D:\Github_code_back\logistic_guardian
-# streamlit run logistic_web_advance_feature.py
+# streamlit run logistic_web_advance_feature_fixed.py
