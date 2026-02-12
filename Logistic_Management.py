@@ -40,62 +40,103 @@ st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
 
-    /* 1. UNIVERSAL FONT & BASE */
-    html, body, [data-testid="stAppViewContainer"] {
+    html, body, [class*="css"]  {
         font-family: 'Poppins', sans-serif;
-        background: #f3f6fb;
-        /* Fix for App: ensures the container is never "frozen" */
-        overflow: auto !important; 
-        height: 100% !important;
     }
 
-    /* 2. PREMIUM BACKGROUND (STAYS FIXED) */
     .stApp {
       background:
-        radial-gradient(1200px 600px at 10% 0%, rgba(46, 134, 222, 0.1), transparent 60%),
-        radial-gradient(900px 500px at 90% 10%, rgba(155, 89, 182, 0.1), transparent 55%);
-      background-attachment: fixed;
+        radial-gradient(1200px 600px at 10% 0%, rgba(46, 134, 222, 0.14), transparent 60%),
+        radial-gradient(900px 500px at 90% 10%, rgba(155, 89, 182, 0.14), transparent 55%),
+        linear-gradient(180deg, #f8fafc 0%, #f3f6fb 100%);
     }
 
-    /* 3. THE "MOBILE APP" SCROLL FIX */
-    /* This targets the specific div that handles content in Streamlit */
-    .main .block-container {
-        overflow-y: auto !important;
-        /* This is the magic line for iOS/Android App Wrappers */
-        -webkit-overflow-scrolling: touch !important; 
-        padding-top: 3rem !important;
-        padding-bottom: 6rem !important;
+    /* HEADER */
+    .main-header {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px;
     }
 
-    /* 4. HEADER FIXES */
-    /* Mobile apps often get stuck if you touch the header. 
-       We make it "invisible" to touch so swipes go to the content. */
-    header[data-testid="stHeader"] {
-        background: transparent !important;
-        pointer-events: none; 
-    }
-    header[data-testid="stHeader"] > div {
-        pointer-events: auto; /* Keeps the actual menu button clickable */
-    }
-
-    /* 5. UI COMPONENTS (Existing Card Style) */
+    /* CARDS */
     .css-card {
-        background: rgba(255,255,255,0.9);
-        backdrop-filter: blur(8px);
+        background: rgba(255,255,255,0.85);
+        backdrop-filter: blur(10px);
         padding: 1.5rem;
         border-radius: 18px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+        border: 1px solid rgba(255,255,255,0.6);
         margin-bottom: 1rem;
     }
 
-    /* 6. SIDEBAR MOBILE ADJUSTMENT */
-    @media (max-width: 768px) {
-        [data-testid="stSidebar"] {
-            width: 80vw !important;
-        }
+    /* METRICS */
+    div[data-testid="stMetric"] {
+        background-color: #ffffff;
+        padding: 15px;
+        border-radius: 16px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border: 1px solid #f0f0f0;
+        text-align: center;
+    }
+
+    /* SIDEBAR */
+    [data-testid="stSidebar"] {
+        background: rgba(255,255,255,0.9);
+        border-right: 1px solid #e0e0e0;
+    }
+    .sidebar-header {
+        font-size: 1.5rem; font-weight: bold; color: #1e3c72; margin-bottom: 20px;
+    }
+
+    /* TABS */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: white;
+        border-radius: 12px 12px 0 0;
+        box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+        padding: 10px 20px;
+        font-weight: 600;
+        border: 1px solid transparent;
+    }
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #1e3c72, #2a5298) !important;
+        color: white !important;
+    }
+
+    /* RISK ALERTS */
+    .risk-high {
+        background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+        color: white; padding: 1rem; border-radius: 12px; text-align: center; font-weight: bold;
+        box-shadow: 0 4px 15px rgba(255, 94, 98, 0.4);
+    }
+    .risk-low {
+        background: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+        color: white; padding: 1rem; border-radius: 12px; text-align: center; font-weight: bold;
+        box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
+    }
+
+    /* BUTTONS */
+    .stButton button {
+        border-radius: 12px;
+        font-weight: 600;
+        border: 1px solid #e0e0e0;
+        background: white;
+        transition: all 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .stButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        border-color: #2a5298;
+        color: #2a5298;
     }
     </style>
 """, unsafe_allow_html=True)
+
 
 # --- MODEL LOADING ---
 @st.cache_resource
