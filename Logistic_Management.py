@@ -223,12 +223,12 @@ def get_coordinates(address):
     Geocode address with FALLBACK to hardcoded coordinates.
     Supports: City/Country, Full Addresses, Postal Codes, Street Addresses
     
+    Returns: tuple (latitude, longitude, full_address_string) or None
+    
     Examples:
-    - "Milan, Italy" → Works
-    - "Via Roma 1, 20121 Milan, Italy" → Works
-    - "20121, Milan, Italy" → Works
-    - "Alexanderplatz, Berlin, Germany" → Works
-    - "10115 Berlin, Germany" → Works
+    - "Milan, Italy" → (45.46, 9.19, "Milan, Lombardy, Italy")
+    - "Via Roma 1, 20121 Milan, Italy" → (45.46, 9.19, "Via Roma 1, 20121 Milan, Lombardy, Italy")
+    - "20121, Milan, Italy" → (45.46, 9.19, "20121 Milan, Lombardy, Italy")
     """
     # Clean and normalize address
     addr_lower = address.lower().strip()
@@ -236,7 +236,8 @@ def get_coordinates(address):
     # Try hardcoded coordinates FIRST for simple city queries
     if addr_lower in CITY_COORDS:
         print(f"✅ Using hardcoded coords for: {address}")
-        return CITY_COORDS[addr_lower]
+        # For hardcoded, return the input address as-is
+        return (CITY_COORDS[addr_lower][0], CITY_COORDS[addr_lower][1], address)
     
     # For complex addresses (street, postal code, etc.), go straight to Nominatim
     # Nominatim handles these better than our hardcoded list
@@ -248,22 +249,27 @@ def get_coordinates(address):
             
             print(f"🔍 Attempting Nominatim geocoding for: {address}")
             
-            # Increased timeout from 10 to 15 seconds for slower connections
+            # Request with addressdetails to get full structured address
             location = geolocator.geocode(address, timeout=15, addressdetails=True) 
             if location:
-                print(f"✅ Nominatim found: {address} -> ({location.latitude}, {location.longitude})")
-                print(f"   Full address: {location.address}")
-                return (location.latitude, location.longitude)
+                # Extract full address from response
+                full_address = location.address
+                print(f"✅ Nominatim found: {address}")
+                print(f"   Coordinates: ({location.latitude}, {location.longitude})")
+                print(f"   Full address: {full_address}")
+                return (location.latitude, location.longitude, full_address)
             
             # If no location found on first attempt, try variations
             if attempt == 0:
                 # Try adding country if not present
                 if "," not in address:
                     time.sleep(1.2)
-                    location = geolocator.geocode(f"{address}, Europe", timeout=15)
+                    location = geolocator.geocode(f"{address}, Europe", timeout=15, addressdetails=True)
                     if location:
+                        full_address = location.address
                         print(f"✅ Nominatim found (with Europe): {address}")
-                        return (location.latitude, location.longitude)
+                        print(f"   Full address: {full_address}")
+                        return (location.latitude, location.longitude, full_address)
             
         except Exception as e:
             # Log error for debugging in Streamlit console
@@ -278,7 +284,8 @@ def get_coordinates(address):
     for city_key in CITY_COORDS.keys():
         if city_key in addr_lower:
             print(f"✅ Extracted city '{city_key}' from address, using hardcoded coords")
-            return CITY_COORDS[city_key]
+            # Return original address string since we couldn't resolve it fully
+            return (CITY_COORDS[city_key][0], CITY_COORDS[city_key][1], f"{address} (approximate)")
     
     # Absolutely all attempts failed
     print(f"❌ Failed to geocode: {address}")
@@ -546,13 +553,16 @@ st.sidebar.markdown("### 🕹️ Shipment Control")
 
 # Debug geocoding tool
 with st.sidebar.expander("🧪 Test Geocoding (Debug)", expanded=False):
-    st.caption("Test if addresses can be found")
-    test_addr = st.text_input("Test Address", "Milan, Italy", key="test_geo")
+    st.caption("Test if addresses can be found and see full resolved address")
+    test_addr = st.text_input("Test Address", "Via Dante 5, 20121 Milan, Italy", key="test_geo")
     if st.button("🔍 Test Lookup", key="test_btn"):
         with st.spinner("Testing..."):
-            coords = get_coordinates(test_addr)
-            if coords:
-                st.success(f"✅ Found: {coords}")
+            result = get_coordinates(test_addr)
+            if result:
+                lat, lon, full_addr = result
+                st.success(f"✅ Location found!")
+                st.info(f"📍 **Full Address:**\n{full_addr}")
+                st.caption(f"📊 Coordinates: ({lat:.4f}, {lon:.4f})")
             else:
                 st.error(f"❌ Failed to find: {test_addr}")
                 st.info("Possible causes:\n- Rate limit (wait 5 sec)\n- Invalid address\n- Network issue")
@@ -852,9 +862,9 @@ else:
                 with st.spinner("🌍 Analyzing geographical data... Please wait (this may take 5-10 seconds)"):
                     st.info(f"🔍 Looking up: **{pickup_addr}** and **{delivery_addr}**")
                     
-                    p_coords = get_coordinates(pickup_addr)
+                    p_result = get_coordinates(pickup_addr)
                     
-                    if not p_coords:
+                    if not p_result:
                         st.error(f"""
                         ❌ **Pickup location not found: "{pickup_addr}"**
                         
@@ -865,10 +875,14 @@ else:
                         - Click "🔄 Clear Cache" and retry
                         """)
                     else:
-                        st.success(f"✅ Pickup location found: {p_coords}")
-                        d_coords = get_coordinates(delivery_addr)
+                        p_lat, p_lon, p_full_addr = p_result
+                        st.success(f"✅ Pickup location found!")
+                        st.info(f"📍 **Full Address:** {p_full_addr}")
+                        st.caption(f"📊 Coordinates: ({p_lat:.4f}, {p_lon:.4f})")
                         
-                        if not d_coords:
+                        d_result = get_coordinates(delivery_addr)
+                        
+                        if not d_result:
                             st.error(f"""
                             ❌ **Delivery location not found: "{delivery_addr}"**
                             
@@ -879,9 +893,12 @@ else:
                             - Click "🔄 Clear Cache" and retry
                             """)
                         else:
-                            st.success(f"✅ Delivery location found: {d_coords}")
+                            d_lat, d_lon, d_full_addr = d_result
+                            st.success(f"✅ Delivery location found!")
+                            st.info(f"📍 **Full Address:** {d_full_addr}")
+                            st.caption(f"📊 Coordinates: ({d_lat:.4f}, {d_lon:.4f})")
                             
-                            dist_km = haversine(p_coords[0], p_coords[1], d_coords[0], d_coords[1])
+                            dist_km = haversine(p_lat, p_lon, d_lat, d_lon)
                             route_data = pd.DataFrame([{
                                 "distanza_km": dist_km, "valore_merce_eur": route_valore, "peso_kg": route_peso,
                                 "numero_transiti": route_transiti, "rischio_meteo": route_meteo,
@@ -900,7 +917,9 @@ else:
 
                             st.session_state.route_calculated = True
                             st.session_state.route_data = {
-                                'p_coords': p_coords, 'd_coords': d_coords, 'dist_km': dist_km,
+                                'p_coords': (p_lat, p_lon), 'd_coords': (d_lat, d_lon), 
+                                'p_full_addr': p_full_addr, 'd_full_addr': d_full_addr,
+                                'dist_km': dist_km,
                                 'prob': prob, 'pred': pred, 'pickup_addr': pickup_addr, 'delivery_addr': delivery_addr,
                                 'route_modalita': route_modalita, 'route_transiti': route_transiti
                             }
@@ -910,6 +929,17 @@ else:
         if st.session_state.route_calculated and 'route_data' in st.session_state:
             rd = st.session_state.route_data
             st.markdown("---")
+            
+            # Display Full Resolved Addresses
+            addr_col1, addr_col2 = st.columns(2)
+            with addr_col1:
+                st.markdown("### 📍 Pickup Location")
+                st.success(rd.get('p_full_addr', rd['pickup_addr']))
+                st.caption(f"Coordinates: {rd['p_coords']}")
+            with addr_col2:
+                st.markdown("### 📍 Delivery Location")
+                st.success(rd.get('d_full_addr', rd['delivery_addr']))
+                st.caption(f"Coordinates: {rd['d_coords']}")
 
             # API FETCH
             w_pick = fetch_live_weather(rd["p_coords"][0], rd["p_coords"][1])
@@ -926,10 +956,23 @@ else:
             col_map, col_analysis = st.columns([2, 1])
             with col_map:
                 m = folium.Map(location=[rd['p_coords'][0], rd['p_coords'][1]], zoom_start=4)
-                folium.Marker(rd['p_coords'], tooltip="Start",
-                              icon=folium.Icon(color='blue', icon='play', prefix='fa')).add_to(m)
-                folium.Marker(rd['d_coords'], tooltip="End",
-                              icon=folium.Icon(color='red', icon='flag-checkered', prefix='fa')).add_to(m)
+                
+                # Pickup marker with full address in popup
+                folium.Marker(
+                    rd['p_coords'], 
+                    popup=f"<b>Pickup:</b><br>{rd.get('p_full_addr', rd['pickup_addr'])}", 
+                    tooltip="Start",
+                    icon=folium.Icon(color='blue', icon='play', prefix='fa')
+                ).add_to(m)
+                
+                # Delivery marker with full address in popup
+                folium.Marker(
+                    rd['d_coords'], 
+                    popup=f"<b>Delivery:</b><br>{rd.get('d_full_addr', rd['delivery_addr'])}", 
+                    tooltip="End",
+                    icon=folium.Icon(color='red', icon='flag-checkered', prefix='fa')
+                ).add_to(m)
+                
                 folium.PolyLine([rd['p_coords'], rd['d_coords']], color="blue", weight=2.5, opacity=0.8).add_to(m)
                 st_folium(m, width=None, height=450)
 
