@@ -587,7 +587,7 @@ def manual_input():
         submitted = st.form_submit_button("Update Input Data")
 
     data = {"distanza_km": distanza, "valore_merce_eur": valore, "peso_kg": peso, "numero_transiti": transiti,
-            "rischio_meteo": meteo, "rischio_doganale": doganale, "modalita_trasporto": modalita, "fragile": fragile,
+            "rischio_meteo": meteo, "rischio_doganale": doganale, "modalità_trasporto": modalita, "fragile": fragile,
             "tracking_gps": gps}
     return pd.DataFrame([data])
 
@@ -632,7 +632,7 @@ else:
                         extra={
                             "Distance(km)": input_df["distanza_km"].iloc[0],
                             "Value(EUR)": input_df["valore_merce_eur"].iloc[0],
-                            "Mode": input_df["modalita_trasporto"].iloc[0],
+                            "Mode": input_df["modalità_trasporto"].iloc[0],
                             "Transits": input_df["numero_transiti"].iloc[0],
                         }
                     )
@@ -899,7 +899,7 @@ else:
                                 "distanza_km": dist_km, "valore_merce_eur": route_valore, "peso_kg": route_peso,
                                 "numero_transiti": route_transiti, "rischio_meteo": route_meteo,
                                 "rischio_doganale": route_doganale,
-                                "modalita_trasporto": route_modalita, "fragile": 0, "tracking_gps": 1
+                                "modalità_trasporto": route_modalita, "fragile": 0, "tracking_gps": 1
                             }])
                             prob = pipeline.predict_proba(route_data)[0][1]
                             pred = pipeline.predict(route_data)[0]
@@ -1000,7 +1000,7 @@ else:
                 "peso_kg": st.session_state.get("route_weight", 1200), "numero_transiti": rd["route_transiti"],
                 "rischio_meteo": st.session_state.get("route_weather", 2),
                 "rischio_doganale": st.session_state.get("route_customs", 1),
-                "modalita_trasporto": st.session_state.get("route_mode", rd.get("route_modalita", "Road")),
+                "modalità_trasporto": st.session_state.get("route_mode", rd.get("route_modalita", "Road")),
                 "fragile": 0, "tracking_gps": 1
             }])
         elif "last_manual_df" in st.session_state:
@@ -1067,10 +1067,10 @@ else:
             st.write("")
             st.caption("Mode switch:")
             mc1, mc2, mc3, mc4 = st.columns(4)
-            if mc1.button("Road"): sim.loc[0, "modalita_trasporto"] = "Road"
-            if mc2.button("Sea"): sim.loc[0, "modalita_trasporto"] = "Sea"
-            if mc3.button("Railway"): sim.loc[0, "modalita_trasporto"] = "Railway"
-            if mc4.button("Airplane"): sim.loc[0, "modalita_trasporto"] = "Airplane"
+            if mc1.button("Road"): sim.loc[0, "modalità_trasporto"] = "Road"
+            if mc2.button("Sea"): sim.loc[0, "modalità_trasporto"] = "Sea"
+            if mc3.button("Railway"): sim.loc[0, "modalità_trasporto"] = "Railway"
+            if mc4.button("Airplane"): sim.loc[0, "modalità_trasporto"] = "Airplane"
 
             # 4. Calculate New Metrics
             new_prob = pipeline.predict_proba(sim)[0][1]
@@ -1133,7 +1133,7 @@ else:
 
                 # 2. Route / Best Route Logic
                 elif any(x in msg_lower for x in ["route", "best", "mode", "road", "sea", "air", "rail"]):
-                    current_mode = sim['modalita_trasporto'].iloc[0]
+                    current_mode = sim['modalità_trasporto'].iloc[0]
                     dist = sim['distanza_km'].iloc[0]
                     if current_mode == "Road" and dist > 1000:
                         reply = f"**Route Advice:** You are using **Road** for a long distance ({dist}km). The best route for speed would be **Air**, but **Railway** offers a better balance of cost and stability against weather."
@@ -1172,5 +1172,5 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.caption("System Created By Raja Roy | 2026")
 
-# Run: cd D:\Github_code_back\Logistic_Management
+# Run: cd D:\Github_code_back\logistic_guardian
 # streamlit run Logistic_Management.py
