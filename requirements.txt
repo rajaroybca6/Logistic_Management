@@ -1,13 +1,26 @@
-pandas
-numpy
+# Core dependencies set to stable versions
+pandas>=1.4.0,<2.2.0
+numpy>=1.24.0,<2.0.0
+streamlit>=1.35.0
+altair<5.0.0
+
+# Machine Learning & Tools
 scikit-learn
 imbalanced-learn
 mlflow
 optuna
 shap
-fastapi
-uvicorn
 joblib
 scipy
 matplotlib
 seaborn
+
+# API & Web
+fastapi
+uvicorn
+jinja2
+
+# Geographic features (if used in your code)
+folium
+streamlit-folium
+geopy
