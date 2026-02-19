@@ -16,3 +16,29 @@ folium
 streamlit-folium
 geopy
 jinja2
+# Core Data Science
+pandas==3.0.1
+numpy==2.4.2
+scipy==1.17.0
+matplotlib==3.10.8
+seaborn==0.13.2
+
+# Machine Learning & Optimization
+scikit-learn==1.8.0
+imbalanced-learn==0.14.1
+mlflow==1.27.0
+optuna==4.7.0
+shap==0.50.0
+joblib==1.5.3
+
+# Web & API
+fastapi==0.129.0
+uvicorn==0.41.0
+jinja2==3.1.6
+
+# Streamlit & Geospatial (The Fix)
+streamlit>=1.30.0
+altair>=5.0.0
+folium==0.20.0
+streamlit-folium==0.26.1
+geopy==2.4.1
