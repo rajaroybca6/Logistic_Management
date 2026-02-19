@@ -12,6 +12,7 @@ scipy
 matplotlib
 seaborn
 streamlit
+altair
 folium
 streamlit-folium
 geopy
